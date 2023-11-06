@@ -26,7 +26,7 @@ typedef struct
 
 
 int bodies, timeSteps, thread_count;
-double *masses, GravConstant;
+double *masses, GravConstant, *dist;
 double total_time = 0.0;
 vector *positions, *velocities, *accelerations, *F_q_k;
 pthread_t *thread_handles;
@@ -115,10 +115,10 @@ void *computeAccelerations(void* rank)
         {
             if (i != j)
             {
-                double dist = pow(mod(subtractVectors(positions[i], positions[j])), 3);
-                if (dist >= eps)
+                dist[my_rank] = pow(mod(subtractVectors(positions[i], positions[j])), 3);
+                if (dist[my_rank] >= eps)
                 {
-                    F_q_k[i * bodies + j] = scaleVector(GravConstant * masses[j] / dist, subtractVectors(positions[j], positions[i]));
+                    F_q_k[i * bodies + j] = scaleVector(GravConstant * masses[j] / dist[my_rank], subtractVectors(positions[j], positions[i]));
                     F_q_k[j * bodies + i] = scaleVector(-1, F_q_k[i * bodies + j]);
                 }
                 else{
@@ -192,7 +192,7 @@ int main(int argC, char *argV[])
         thread_count = strtol(argV[2], NULL, 10);
         initiateSystem(argV[1]);
 
-
+        dist = malloc(thread_count * sizeof(double));
         
         thread_handles = malloc(thread_count * sizeof(pthread_t));
 
@@ -231,6 +231,7 @@ int main(int argC, char *argV[])
         pthread_barrier_destroy(&barrier);
         free(thread_handles);
         free(masses);
+        free(dist);
         free(positions);
         free(velocities);
         free(F_q_k);
