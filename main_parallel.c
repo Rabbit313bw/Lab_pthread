@@ -26,7 +26,7 @@ typedef struct
 
 
 int bodies, timeSteps, thread_count;
-double *masses, GravConstant, *dist;
+double *masses, GravConstant;
 double total_time = 0.0;
 vector *positions, *velocities, *accelerations, *F_q_k;
 pthread_t *thread_handles;
@@ -115,10 +115,10 @@ void *computeAccelerations(void* rank)
         {
             if (i != j)
             {
-                dist[my_rank] = pow(mod(subtractVectors(positions[i], positions[j])), 3);
-                if (dist[my_rank] >= eps)
+                double dist = pow(mod(subtractVectors(positions[i], positions[j])), 3);
+                if (dist >= eps)
                 {
-                    F_q_k[i * bodies + j] = scaleVector(GravConstant * masses[j] / dist[my_rank], subtractVectors(positions[j], positions[i]));
+                    F_q_k[i * bodies + j] = scaleVector(GravConstant * masses[j] / dist, subtractVectors(positions[j], positions[i]));
                     F_q_k[j * bodies + i] = scaleVector(-1, F_q_k[i * bodies + j]);
                 }
                 else{
@@ -192,7 +192,6 @@ int main(int argC, char *argV[])
         thread_count = strtol(argV[2], NULL, 10);
         initiateSystem(argV[1]);
 
-        dist = malloc(thread_count * sizeof(double));
         
         thread_handles = malloc(thread_count * sizeof(pthread_t));
 
@@ -204,8 +203,8 @@ int main(int argC, char *argV[])
 
         pthread_barrier_init(&barrier, NULL, thread_count);
         initiateSystem(argV[1]);
-        FILE *fw = fopen("output_par", "w");
-        fputs("Body   :     x              y           vx              vy   ", fw);
+        //FILE *fw = fopen("output_par", "w");
+        //fputs("Body   :     x              y           vx              vy   ", fw);
         double begin;
         GET_TIME(begin);
         char str_num_bodies[10];
@@ -213,25 +212,24 @@ int main(int argC, char *argV[])
         for (i = 0; i < timeSteps; i++)
         {
             char cycl[100];
-            snprintf(cycl, sizeof(cycl), "\nCycle %d\n", i + 1);
-            fputs(cycl, fw);
+            //printf("\nCycle %d\n", i + 1);
+            //fputs(cycl, fw);
             simulate();
             for (j = 0; j < bodies; j++)
             {
                 char str[10000];
-                snprintf(str, sizeof(str), "Body %d : %lf\t%lf\t%lf\t%lf\n", j + 1, positions[j].x, positions[j].y, velocities[j].x, velocities[j].y);
-                fputs(str, fw);
+                if (i == timeSteps - 1)
+                    printf("Body %d : %lf\t%lf\t%lf\t%lf\n", j + 1, positions[j].x, positions[j].y, velocities[j].x, velocities[j].y);
+                //fputs(str, fw);
             }
         }
         double end;
         GET_TIME(end);
         total_time = end - begin;
         printf("\nTime is : %lf\n", total_time);
-        fclose(fw);
         pthread_barrier_destroy(&barrier);
         free(thread_handles);
         free(masses);
-        free(dist);
         free(positions);
         free(velocities);
         free(F_q_k);
